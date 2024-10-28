@@ -21,27 +21,40 @@ const ChatInterface = () => {
   // Simulated API call - replace with your actual API
   const sendMessage = async (message) => {
     setIsLoading(true);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock response - replace with actual API call
-    const response = {
-      answer: "This is a sample response about the topic you asked.",
-      context: [
-        {
-          text: "Retrieved context 1 - This is relevant information from document A",
-          source: "Document A, page 12"
-        },
-        {
-          text: "Retrieved context 2 - Additional information from document B",
-          source: "Document B, page 45"
-        }
-      ]
-    };
-    
+
+    const apiResponse = await fetch('http://localhost:8000/rag', {
+      method: 'POST',
+      body: JSON.stringify({ query : message }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await apiResponse.json();
+
+    // set context based on the response by looping through the search results
+    // and extracting the text and source and appending it to the context array
+    let context = [];
+    let answer = '';
+    try {
+      for (let i = 0; i < data.results.search_results.vector_search_results.length; i++) {
+        const ctx = {
+          text: data.results.search_results.vector_search_results[i].text,
+          source: data.results.search_results.vector_search_results[i].metadata.title
+        };
+        context.push(ctx);
+      }
+      answer = data.results.completion.choices[0].message.content
+     }
+    catch (error) {
+      console.error('Failed to extract context:', error);
+      context = [];
+      answer = 'Sorry, I had an issue processing your request';
+    }
+
+
     setMessages(prev => [...prev, 
       { type: 'user', content: message },
-      { type: 'bot', content: response.answer, context: response.context }
+      { type: 'bot', content: answer, context: context }
     ]);
     setIsLoading(false);
   };
